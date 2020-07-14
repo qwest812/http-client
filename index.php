@@ -5,7 +5,7 @@ class Auth
     /**
      * @var array
      */
-    private $headers = [];
+    private $headers = '';
     /**
      * @var array
      */
@@ -14,7 +14,7 @@ class Auth
      * @var bool|string
      */
 
-    public $token = '';
+    private $token = '';
 
     /**
      * Auth constructor.
@@ -40,35 +40,22 @@ class Auth
     }
 
     /**
-     * @param array $arr
+     * @param $path
+     * @param $data
      */
-    public function addHeaders(array $arr)
-    {
-        $statPoint = false;
-        foreach ($arr as $key => $value) {
-            if ($statPoint) {
-                $this->headers .= ' ' . $key . ":" . $value;
-                $statPoint = true;
-            } else {
-                $this->headers .= $key . ":" . $value;
-            }
-        }
-    }
 
-    public function sendJSON($data)
+    public function sendJSON($path, $data)
     {
         try {
             $data = json_encode($data);
             if (!$this->isJSON($data)) {
                 throw new JsonError();
             }
-            $this->addHeaders(['Content-Type' => 'application/json', 'Authorization' => $this->token]);
-            $this->sendRequest('https://www.coredna.com/assessment-endpoint.php', 'POST', $data);
+            $this->sendRequest($path, 'POST', $data, ['Authorization' => 'Bearer ' . $this->token, 'Content-Type' => 'application/json']);
         } catch (JsonError $error) {
             echo $error->getMessage();
             $this->logs($error->getMessage());
         }
-
     }
 
     /**
@@ -89,23 +76,22 @@ class Auth
      */
     protected function sendRequest($path, $method, $data = '', $header = [])
     {
-        $this->addHeaders($header);
-        $context_options = array(
-            'https' => array(
+
+        $this->setHeaders($header);
+        $context = stream_context_create(array(
+            'http' => array(
                 'method' => $method,
-                'header' => $this->headers,
+                'header' => $this->getHeaders(),
                 'content' => $data,
             )
-        );
-        $context = stream_context_create($context_options);
+        ));
+
         $fp = fopen($path, 'r', false, $context);
         if (!$fp) {
-            $this->logs("Error fopen: " . $http_response_header()[0]);
+            $this->logs("Error fopen: " . $http_response_header[0]);
         } else {
-            fpassthru($fp);
+            echo 'Success';
         }
-
-
     }
 
     /**
@@ -118,9 +104,20 @@ class Auth
 
     }
 
+    /**
+     * @return array
+     */
     public function getHeaders()
     {
-        return $http_response_header;
+        return $this->headers;
+    }
+
+    public function setHeaders(array $arr)
+    {
+        $this->headers = '';
+        foreach ($arr as $key => $value) {
+            $this->headers .= PHP_EOL . $key . ":" . $value;
+        }
     }
 
     /**
@@ -129,6 +126,14 @@ class Auth
     public function getResponseHeaders()
     {
         return $this->responseHeaders;
+    }
+
+    /**
+     * @param $headers
+     */
+    public function setResponseHeaders($headers)
+    {
+        $this->responseHeaders = $headers;
     }
 }
 
@@ -144,6 +149,8 @@ class JsonError extends Exception
 }
 
 $class = new Auth();
-$class->sendJSON(['"name"' => "Iaroslav Rybachuk", "email" => "rybachuk.iaroslav@gmail.com", "url" => "https://github.com/john-doe/http-client"]);
 
-?>
+$class->sendJSON('https://www.coredna.com/assessment-endpoint.php',
+    ["name" => "Iaroslav Rybachuk",
+    "email" => "rybachuk.iaroslav@gmail.com",
+    "url" => "https://github.com/qwest812/http-client"]);
